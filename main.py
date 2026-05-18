@@ -3,136 +3,103 @@ import os
 import time
 import copy
 
-# Force Python to look in the current folder for local modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from data_factory import get_sample_dataset
 from sorting import merge_sort, selection_sort
 from scheduler import run_priority_simulation
-from triage import calculate_triage_score, estimate_treatment_time
+from triage import PROBLEM_MAP, get_problem_details
 
-def clear_screen():
-    # Terminal ko saaf rakhne ke liye helper
-    os.system('cls' if os.name == 'nt' else 'clear')
+# Core list of standard problems extracted to indexed array
+PROBLEMS_LIST = list(PROBLEM_MAP.keys())
+
+patients_db = [
+    {"id": "P01", "name": "Aman Verma", "age": 24, "gender": "Male", "symptom": "Routine Blood Pressure Checkup", "base_priority": 5, "current_priority": 5, "total_treatment_time": 3, "remaining_time": 3, "arrival_time": 0, "waiting_in_lobby": 0},
+    {"id": "P02", "name": "Priyanka Sharma", "age": 68, "gender": "Female", "symptom": "Cardiac Arrest / Heart Attack", "base_priority": 1, "current_priority": 1, "total_treatment_time": 8, "remaining_time": 8, "arrival_time": 0, "waiting_in_lobby": 0},
+    {"id": "P03", "name": "Baby Kabir", "age": 3, "gender": "Male", "symptom": "High Fever with Chills & Vomiting", "base_priority": 2, "current_priority": 2, "total_treatment_time": 5, "remaining_time": 5, "arrival_time": 0, "waiting_in_lobby": 0}
+]
 
 def display_menu():
-    print("\n" + "="*45)
-    print("      🩺 LIFELINE EMERGENCY ROOM MENU 🩺      ")
-    print("="*45)
-    print(" [1] 📋 View Current Patient Waiting List")
-    print(" [2] ➕ Add New Emergency Patient")
-    print(" [3] ⏱️  Run DAA Sorting Benchmark Performance")
-    print(" [4] 🚀 Start OS Doctor Allocation Simulation")
-    print(" [5] ❌ Exit Application")
-    print("="*45)
+    print("\n" + "="*50)
+    print("      🩺 LIFELINE FIXED-MATRIX ER MENU 🩺      ")
+    print("="*50)
+    print(" [1] 📋 View Current ER Queue List")
+    print(" [2] ➕ Register New Patient (From 10 Master Problems)")
+    print(" [3] ⏱️  Compare Sorting Algorithms (DAA Performance)")
+    print(" [4] 🚀 Execute Live Doctor Scheduler Loop (OS Process)")
+    print(" [5] ❌ Close Application")
+    print("="*50)
 
 def run_interactive_terminal():
-    # Load 15 standard patients from factory as starting database
-    patients_db = get_sample_dataset()
-    
-    # Custom adjustments: Filter or keep a clean pool
-    # Truncating to 7 as per your previous preference, feel free to add more!
-    patients_db = patients_db[:7]
-
+    global patients_db
     while True:
         display_menu()
-        choice = input("\n👉 Enter your choice (1-5): ").strip()
+        choice = input("\n👉 Enter Selection (1-5): ").strip()
 
         if choice == '1':
-            clear_screen()
-            print("\n📋 CURRENT PATIENT WAITING LIST IN LOBBY:")
-            print("-" * 65)
-            print(f"{'ID':<6}{'Patient Name':<20}{'Base Priority':<15}{'Treatment Time':<15}")
-            print("-" * 65)
+            os.system('clear' if os.name != 'nt' else 'cls')
+            print("\n📋 ACTIVE WAITING LOBBY REGISTRY:")
+            print("-" * 85)
+            print(f"{'ID':<5}{'Patient Name':<18}{'Age/Sex':<10}{'Chief Complaint Description':<36}{'Priority':<12}")
+            print("-" * 85)
             for p in patients_db:
-                # Priority text mapping for terminal readability
-                prio_txt = "🔴 Critical" if p['base_priority'] == 1 else ("🟡 Urgent" if p['base_priority'] in [2,3] else "🟢 Stable")
-                print(f"{p['id']:<6}{p['name']:<20}{prio_txt:<15}{p['total_treatment_time']:<2} mins")
-            print("-" * 65)
-            input("\nPress Enter to return to Menu...")
+                tag = "🔴 Critical" if p['base_priority'] == 1 else ("🟡 Urgent" if p['base_priority'] in [2,3] else "🟢 Stable")
+                print(f"{p['id']:<5}{p['name']:<18}{f'{p['age']}/{p['gender'][0]}':<10}{p['symptom']:<36}{tag:<12}")
+            input("\nPress Enter to return to menu...")
 
         elif choice == '2':
-            clear_screen()
-            print("\n➕ REGISTER NEW INCOMING PATIENT:")
-            print("-" * 40)
-            name = input("👤 Enter Patient Full Name: ").strip()
-            if not name:
-                print("❌ Error: Name cannot be blank!")
-                time.sleep(1.5)
-                continue
+            os.system('clear' if os.name != 'nt' else 'cls')
+            print("\n➕ INTAKE NEW REGISTRATION:")
+            name = input("👤 Full Name: ").strip()
+            if not name: continue
             
-            print("\nSelect Main Complaint Severity:")
-            print(" 1. Severe Chest Pain / Heavy Bleeding (Critical)")
-            print(" 2. Mild Fever / Persistent Cough (Moderate)")
-            print(" 3. Routine Body Checkup (Stable)")
-            comp_choice = input("Select Option (1-3): ").strip()
+            try:
+                age = int(input("🔢 Age: "))
+                gender = input("🚻 Gender (M/F/Other): ").strip()
+            except ValueError: continue
+            
+            print("\n📋 SELECT PATIENT COMPLAINT FROM MASTER 10 ER PROBLEMS:")
+            for idx, prob in enumerate(PROBLEMS_LIST, 1):
+                print(f"  {idx:02d}. {prob}")
+                
+            try:
+                prob_idx = int(input("\n👉 Choice Number (1-10): ")) - 1
+                if prob_idx < 0 or prob_idx >= 10: raise ValueError
+            except ValueError:
+                print("❌ Invalid Choice number!")
+                continue
 
-            # Set parameters based on selection
-            if comp_choice == '1':
-                o2, hr, bp = 88, 130, 185
-            elif comp_choice == '2':
-                o2, hr, bp = 94, 95, 135
-            else:
-                o2, hr, bp = 98, 75, 120
-
-            prio = calculate_triage_score(hr, bp, o2)
-            duration = estimate_treatment_time(prio)
+            selected_symptom = PROBLEMS_LIST[prob_idx]
+            
+            # Map parameters matching strict matrix rules automatically
+            prio, duration, _ = get_problem_details(selected_symptom, age)
             next_id = f"P{len(patients_db) + 1:02d}"
 
             new_patient = {
-                "id": next_id, "name": name, "base_priority": prio, "current_priority": prio,
-                "total_treatment_time": duration, "remaining_time": duration, "arrival_time": 0, "waiting_in_lobby": 0
+                "id": next_id, "name": name, "age": age, "gender": gender, "symptom": selected_symptom,
+                "base_priority": prio, "current_priority": prio, "total_treatment_time": duration,
+                "remaining_time": duration, "arrival_time": 0, "waiting_in_lobby": 0
             }
             patients_db.append(new_patient)
-            print(f"\n✅ Success: {name} registered as ID {next_id} with Priority Level {prio}!")
-            input("\nPress Enter to return to Menu...")
+            print(f"\n✅ Success! Auto-Triaged to Level {prio} based on List Choice matrix configuration.")
+            input("\nPress Enter to return...")
 
         elif choice == '3':
-            clear_screen()
-            print("\n⏱️  RUNNING DAA TRIAGE SORTING BENCHMARK...")
-            print("-" * 50)
-            
             start = time.perf_counter()
             _ = selection_sort(patients_db)
-            sel_time = (time.perf_counter() - start) * 1000
-
+            s_t = (time.perf_counter() - start) * 1000
+            
             start = time.perf_counter()
             _ = merge_sort(patients_db)
-            mrg_time = (time.perf_counter() - start) * 1000
-
-            print(f"🔹 Selection Sort Time : {sel_time:.4f} ms | Complexity: O(n²)")
-            print(f"🔹 Merge Sort Time     : {mrg_time:.4f} ms | Complexity: O(n log n)")
-            print("-" * 50)
-            print("💡 Observation: Merge Sort splits processing load exponentially, making it ideal for massive ER queues!")
-            input("\nPress Enter to return to Menu...")
+            mrg_t = (time.perf_counter() - start) * 1000
+            print(f"\n⏱️  Selection Sort Speed: {s_t:.4f} ms (O(n²))\n⏱️  Merge Sort Speed:     {mrg_t:.4f} ms (O(n log n))")
 
         elif choice == '4':
-            clear_screen()
-            print("\n🚀 BOOTING CPU PARTITION SCHEDULER...")
-            time.sleep(1)
-            
-            # Use Merge Sort to arrange current lobby list by priority before running simulation
+            os.system('clear' if os.name != 'nt' else 'cls')
             sorted_lobby = merge_sort(patients_db)
-            
-            # Separate them into initial batch and dynamic mid-sim arrivals
-            # First 5 are inside, next ones arrive dynamically at staggered times
-            initial_batch = sorted_lobby[:5]
-            dynamic_arrivals = sorted_lobby[5:]
-            
-            for idx, p in enumerate(dynamic_arrivals):
-                p['arrival_time'] = (idx + 1) * 6  # Arrives at min 6, 12, etc.
+            run_priority_simulation(sorted_lobby[:4], sorted_lobby[4:])
+            input("\nSimulation Cycle Finished. Press Enter...")
 
-            # Hand off data to our simulation runner inside scheduler.py
-            run_priority_simulation(initial_batch, dynamic_arrivals)
-            input("\nSimulation Complete. Press Enter to return to Menu...")
-
-        elif choice == '5':
-            clear_screen()
-            print("\n👋 Shutting down LifeLine Triage Engine. Take care, Doc!")
-            break
-        else:
-            print("❌ Invalid input! Please enter a number between 1 and 5.")
-            time.sleep(1.5)
+        elif choice == '5': break
 
 if __name__ == "__main__":
     run_interactive_terminal()

@@ -8,8 +8,9 @@ import streamlit as st
 import pandas as pd
 import time
 import copy
-from sorting import merge_sort
+from sorting import merge_sort, selection_sort
 from triage import PROBLEM_MAP, get_problem_details
+from config import AGING_THRESHOLD, AGING_BONUS
 
 # Page Configurations
 st.set_page_config(page_title="LifeLine Tracker", page_icon="🩺", layout="centered")
@@ -26,12 +27,32 @@ st.caption("CITY GENERAL HOSPITAL • CLINICAL DESK")
 st.title("LifeLine™ Smart Triage Kiosk")
 st.markdown("---")
 
-# Session State Database Loader
+# =========================================================
+# SESSION STATE DATABASE LOADER (Enhanced 8-Patient Mix)
+# =========================================================
 if "patient_database" not in st.session_state:
     st.session_state.patient_database = [
+        # 🟢 Level 5 Cases (Routine - Iska Aging test hoga)
         {"id": "P01", "name": "Aman Verma", "age": 24, "gender": "Male", "symptom": "Routine Blood Pressure Checkup", "base_priority": 5, "current_priority": 5, "total_treatment_time": 3, "remaining_time": 3, "arrival_time": 0, "waiting_in_lobby": 0},
+        
+        # 🔴 Level 1 Cases (Extreme Emergency)
         {"id": "P02", "name": "Priyanka Sharma", "age": 68, "gender": "Female", "symptom": "Cardiac Arrest / Heart Attack", "base_priority": 1, "current_priority": 1, "total_treatment_time": 8, "remaining_time": 8, "arrival_time": 0, "waiting_in_lobby": 0},
-        {"id": "P03", "name": "Baby Kabir", "age": 3, "gender": "Male", "symptom": "High Fever with Chills & Vomiting", "base_priority": 2, "current_priority": 2, "total_treatment_time": 5, "remaining_time": 5, "arrival_time": 0, "waiting_in_lobby": 0}
+        
+        # 🟡 Level 2 Cases (Age-bias upgraded)
+        {"id": "P03", "name": "Kabir", "age": 3, "gender": "Male", "symptom": "High Fever with Chills & Vomiting", "base_priority": 2, "current_priority": 2, "total_treatment_time": 5, "remaining_time": 5, "arrival_time": 0, "waiting_in_lobby": 0},
+        
+        # 🚨 Level 1 Case (Trauma - Priyanka ke baad line mein lagne ke liye)
+        {"id": "P04", "name": "Rohan Mehra", "age": 32, "gender": "Male", "symptom": "Major Road Accident / Heavy Trauma", "base_priority": 1, "current_priority": 1, "total_treatment_time": 7, "remaining_time": 7, "arrival_time": 0, "waiting_in_lobby": 0},
+        
+        # ⚠️ Level 2 Case (Respiratory Distress)
+        {"id": "P05", "name": "Saira Khan", "age": 45, "gender": "Female", "symptom": "Severe Asthma / Breathing Distress", "base_priority": 2, "current_priority": 2, "total_treatment_time": 6, "remaining_time": 6, "arrival_time": 0, "waiting_in_lobby": 0},
+        
+        # 🟡 Level 3 Cases (Fracture / Pain - Inka Tie-breaker check hoga)
+        {"id": "P06", "name": "Rajesh Kumar", "age": 55, "gender": "Male", "symptom": "Deep Bone Fracture / Acute Pain", "base_priority": 3, "current_priority": 3, "total_treatment_time": 5, "remaining_time": 5, "arrival_time": 0, "waiting_in_lobby": 0},
+        {"id": "P07", "name": "Vikram Singh", "age": 29, "gender": "Male", "symptom": "Deep Bone Fracture / Acute Pain", "base_priority": 3, "current_priority": 3, "total_treatment_time": 4, "remaining_time": 4, "arrival_time": 0, "waiting_in_lobby": 0},
+        
+        # 🟢 Level 4 Case (Stable Migraine)
+        {"id": "P08", "name": "Neha Sharma", "age": 19, "gender": "Female", "symptom": "Moderate Migraine Headache", "base_priority": 4, "current_priority": 4, "total_treatment_time": 3, "remaining_time": 3, "arrival_time": 0, "waiting_in_lobby": 0}
     ]
 
 # --- USER REGISTRATION FORM ---
@@ -98,7 +119,6 @@ if st.button("🚀 Start Live Simulation Tracker", use_container_width=True):
     completed_patients = []
     current_patient = None
     current_time = 0
-    
     live_history_logs = []
     
     clock_spot = st.empty()
@@ -109,8 +129,30 @@ if st.button("🚀 Start Live Simulation Tracker", use_container_width=True):
     remaining_spot = st.empty()
     
     while ready_queue or current_patient:
+        
+        # =================================================
+        # 🛠️ DYNAMIC ALGORITHM SWITCHING (CRASH-PROOF FIXED)
+        # =================================================
         if ready_queue:
-            ready_queue = merge_sort(ready_queue)
+            SORT_THRESHOLD = 10  # Class threshold rule
+            
+            if len(ready_queue) > SORT_THRESHOLD:
+                algo_msg = f"⚙️ Min {current_time:02d}  |  🤖 ALGO ➡️ MERGE SORT (O(n log n)) [Queue Size: {len(ready_queue)}]"
+                ready_queue = merge_sort(ready_queue)
+            else:
+                algo_msg = f"⚙️ Min {current_time:02d}  |  🤖 ALGO ➡️ SELECTION SORT (O(n^2)) [Queue Size: {len(ready_queue)}]"
+                ready_queue = selection_sort(ready_queue)
+                
+            # Secure logic to check and log algorithm updates without crashing
+            should_append = True
+            if live_history_logs:
+                last_log = live_history_logs[-1]
+                if "ALGO" in last_log:
+                    if algo_msg.split("➡️")[-1] == last_log.split("➡️")[-1]:
+                        should_append = False
+            
+            if should_append:
+                live_history_logs.append(algo_msg)
             
         # 1. CRISP ENTRY LOG (Arrow Format)
         if current_patient is None and ready_queue:
@@ -134,12 +176,14 @@ if st.button("🚀 Start Live Simulation Tracker", use_container_width=True):
         with log_spot.container():
             st.code("\n".join(live_history_logs), language="text")
             
-        # Update Pipeline status (Kaun baaki hai)
+        # =================================================
+        # 📋 PATIENTS PRINTED LINE-BY-LINE IN READY QUEUE
+        # =================================================
         if ready_queue:
-            remaining_header.markdown("#### ⏳ Patients Remaining in Lobby:")
+            remaining_header.markdown(f"#### ⏳ Patients Remaining in Lobby ({len(ready_queue)} in line):")
             rem_items = []
             for rp in ready_queue:
-                rem_items.append(f"• {rp['id']} : {rp['name']} (Treatment needed: {rp['total_treatment_time']}m)")
+                rem_items.append(f"• {rp['id']} : {rp['name']} | Priority: Level {rp['current_priority']} | Need: {rp['total_treatment_time']}m")
             remaining_spot.markdown("\n".join(rem_items))
         else:
             remaining_header.empty()
@@ -147,6 +191,19 @@ if st.button("🚀 Start Live Simulation Tracker", use_container_width=True):
             
         current_time += 1
         time.sleep(0.8) # Paced timing
+        
+        # =================================================
+        # ⚡ LIVE AGING SYSTEM BUMP LOGGER
+        # =================================================
+        for patient in ready_queue:
+            patient['waiting_in_lobby'] += 1
+            if patient['waiting_in_lobby'] >= AGING_THRESHOLD:
+                old_prio = patient['current_priority']
+                patient['current_priority'] = max(1, patient['current_priority'] - AGING_BONUS)
+                patient['waiting_in_lobby'] = 0  # reset clock cycle
+                if old_prio != patient['current_priority']:
+                    aging_msg = f"⏱️ Min {current_time:02d}  |  ⚡ BUMP ➡️  {patient['name']} ({patient['id']}) promoted to Level {patient['current_priority']} due to wait."
+                    live_history_logs.append(aging_msg)
         
         # 2. CRISP EXIT LOG (Arrow Format with Wait Time)
         if current_patient and current_patient['remaining_time'] == 0:
@@ -181,4 +238,4 @@ if st.button("🚀 Start Live Simulation Tracker", use_container_width=True):
     stat_col1, stat_col2 = st.columns(2)
     with stat_col1: st.metric("Average Waiting Time", f"{avg_wait:.2f} mins")
     with stat_col2: st.metric("Average Turnaround Time (TAT)", f"{avg_tat:.2f} mins")
-   
+    st.balloons()

@@ -5,7 +5,7 @@ def run_priority_simulation(initial_batch, dynamic_arrivals):
     """
     OS Engine: Priority Scheduling Simulation with support for Age, Gender, and Custom Symptoms.
     """
-    from sorting import merge_sort  # Local import to prevent circular dependencies
+    from sorting import merge_sort, selection_sort  # Local imports to bypass dependency cycles
     
     print("\n" + "="*70)
     print(" 🚨 EMERGENCY ROOM LIVE SCHEDULER MONITOR ACTIVE 🚨")
@@ -28,9 +28,23 @@ def run_priority_simulation(initial_batch, dynamic_arrivals):
                 print(f"⏰ [Min {current_time:02d}] >> EMERGENCY DOOR ARRIVAL: {patient['name']} ({patient['age']}y/{patient['gender']}) entered.")
                 arrival_pool.remove(patient)
         
-        # 2. Dynamic DAA Re-sorting Step
+        # 2. Dynamic DAA Re-sorting Step (With Smart Threshold & Line-by-Line Queue Logger)
         if ready_queue:
-            ready_queue = merge_sort(ready_queue)
+            SORT_THRESHOLD = 10  # Dubara aapka wahi purana rule set kiya
+            
+            if len(ready_queue) > SORT_THRESHOLD:
+                print(f"⚙️  [Min {current_time:02d}] [ALGORITHM IN USE] ➡️  MERGE SORT (O(n log n)) [Queue > {SORT_THRESHOLD}]")
+                ready_queue = merge_sort(ready_queue)
+            else:
+                print(f"⚙️  [Min {current_time:02d}] [ALGORITHM IN USE] ➡️  SELECTION SORT (O(n^2)) [Queue <= {SORT_THRESHOLD}]")
+                ready_queue = selection_sort(ready_queue)
+                
+            # --- 📋 NEW FEATURE: PATIENTS IN READY QUEUE PRINTED LINE-BY-LINE ---
+            print(f"📋 [Min {current_time:02d}] Current Waiting Room Line ({len(ready_queue)} patients):")
+            for p in ready_queue:
+                print(f"   ↳ {p['id']} : {p['name']} | Priority: {p['current_priority']} | Est. Time: {p['total_treatment_time']}m")
+            print("-" * 50) # Separation line for readability
+            # --------------------------------------------------------------------
             
         # 3. Doctor/CPU Allocation (Context Switch)
         if current_patient is None and ready_queue:
